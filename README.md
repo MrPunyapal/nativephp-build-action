@@ -1,6 +1,6 @@
 # NativePHP Build Action
 
-Community GitHub Action for building NativePHP Mobile Android and iOS applications directly on GitHub-hosted runners.
+Community GitHub Action for building NativePHP Mobile Android applications directly on GitHub-hosted runners.
 
 This is an independent, open-source project. It uses NativePHP's official CLI and does not replace NativePHP or Bifrost.
 
@@ -46,8 +46,8 @@ For a development APK without signing secrets, use `build-type: debug`. For a Pl
 
 | Input | Default | Description |
 | --- | --- | --- |
-| `platform` | `android` | `android` or `ios`; iOS requires a macOS runner. |
-| `build-type` | `release` | Android: `debug`, `release`, or `bundle`; iOS: `release` for a signed IPA. |
+| `platform` | `android` | Target platform. |
+| `build-type` | `release` | `debug` produces a temporary-key development APK; `release` produces a signed APK; `bundle` produces a signed AAB. |
 | `working-directory` | `.` | Laravel application directory. |
 | `php-version` | `8.4` | PHP version. |
 | `node-version` | `22` | Node.js version. |
@@ -59,40 +59,10 @@ For a development APK without signing secrets, use `build-type: debug`. For a Pl
 | `keystore-password` | — | Keystore password. |
 | `key-alias` | — | Signing key alias. |
 | `key-password` | — | Signing key password. |
-| `ios-certificate` | — | Base64-encoded iOS `.p12` certificate. |
-| `ios-certificate-password` | — | iOS certificate password. |
-| `ios-provisioning-profile` | — | Base64-encoded `.mobileprovision` file. |
-| `ios-team-id` | — | Apple Developer Team ID. |
-| `ios-export-method` | `app-store` | iOS export method. |
 
 ## Outputs
 
-`artifact` is the absolute path to exactly one generated `.apk`, `.aab`, or `.ipa`. The Action fails if the expected artifact is missing or ambiguous.
-
-## iOS
-
-iOS builds must run on macOS with Xcode. A signed IPA requires an Apple certificate, provisioning profile, certificate password, and Team ID:
-
-```yaml
-jobs:
-  build-ios:
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build NativePHP iOS IPA
-        id: build
-        uses: mrpunyapal/nativephp-build-action@v1
-        with:
-          platform: ios
-          ios-certificate: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
-          ios-certificate-password: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
-          ios-provisioning-profile: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
-          ios-team-id: ${{ secrets.APPLE_TEAM_ID }}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: nativephp-ios-ipa
-          path: ${{ steps.build.outputs.artifact }}
-```
+`artifact` is the absolute path to exactly one generated `.apk` or `.aab`. The Action fails if the expected artifact is missing or ambiguous.
 
 ## Signing
 
@@ -108,12 +78,12 @@ Do not print the secret, pass it in a command string, or commit the keystore.
 
 ## What the Action does
 
-1. Validates the platform and signing inputs.
+1. Validates the Android build and signing inputs.
 2. Restores Composer, npm, and Android Gradle caches when available.
-3. Installs PHP, Composer, Node.js, and the platform toolchain.
+3. Installs PHP, Composer, Node.js, Java, Android SDK, CMake, and the NativePHP-required NDK.
 3. Installs Composer/npm dependencies and builds frontend assets when the project defines a build script.
-4. Runs `php artisan native:install android|ios`.
-5. Runs the corresponding `php artisan native:package` command.
+4. Runs `php artisan native:install android`.
+5. Runs `php artisan native:package android --build-type=... --no-tty`.
 6. Locates and exposes the generated artifact.
 
 The underlying Composer, NativePHP, and Gradle output remains visible in the workflow log.
