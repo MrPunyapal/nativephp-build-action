@@ -206,6 +206,18 @@ runs:
           --no-tty \
           --no-interaction
 
+    - name: Print NativePHP build diagnostics
+      if: ${{ failure() }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        set +e
+        if [ -f nativephp/android-build.log ]; then
+          echo '--- nativephp/android-build.log ---'
+          cat nativephp/android-build.log
+        fi
+        find nativephp -maxdepth 4 -type f \( -name '*.log' -o -name 'composer-*.json' \) -print 2>/dev/null
+
     - name: Locate Android artifact
       id: artifact
       shell: bash
