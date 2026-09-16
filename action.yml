@@ -75,7 +75,7 @@ runs:
       run: node "${{ github.action_path }}/scripts/validate.mjs"
 
     - name: Set up PHP
-      uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45d # v2
+      uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
       with:
         php-version: ${{ inputs.php-version }}
         extensions: mbstring, intl, zip, pcntl, pdo_sqlite
