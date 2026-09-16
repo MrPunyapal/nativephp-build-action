@@ -1,5 +1,5 @@
 name: NativePHP Mobile Build
-description: Community GitHub Action for building NativePHP Mobile Android applications.
+description: Community GitHub Action for building NativePHP Mobile Android and iOS applications.
 author: mrpunyapal
 branding:
   icon: smartphone
@@ -7,11 +7,11 @@ branding:
 
 inputs:
   platform:
-    description: Target platform. The first release supports Android only.
+    description: Target platform (android or ios).
     required: false
     default: android
   build-type:
-    description: debug creates a temporary-key development APK, release creates a signed APK, bundle creates a signed AAB.
+    description: Android debug/release/bundle or iOS release.
     required: false
     default: release
   working-directory:
@@ -54,10 +54,26 @@ inputs:
   key-password:
     description: Android signing key password.
     required: false
+  ios-certificate:
+    description: Base64-encoded iOS distribution certificate (.p12).
+    required: false
+  ios-certificate-password:
+    description: Password for the iOS certificate.
+    required: false
+  ios-provisioning-profile:
+    description: Base64-encoded iOS provisioning profile.
+    required: false
+  ios-team-id:
+    description: Apple Developer Team ID.
+    required: false
+  ios-export-method:
+    description: iOS export method.
+    required: false
+    default: app-store
 
 outputs:
   artifact:
-    description: Absolute path to the generated APK or AAB.
+    description: Absolute path to the generated APK, AAB, or IPA.
     value: ${{ steps.artifact.outputs.artifact }}
 
 runs:
@@ -72,6 +88,10 @@ runs:
         INPUT_KEYSTORE_PASSWORD: ${{ inputs.keystore-password }}
         INPUT_KEY_ALIAS: ${{ inputs.key-alias }}
         INPUT_KEY_PASSWORD: ${{ inputs.key-password }}
+        INPUT_IOS_CERTIFICATE: ${{ inputs.ios-certificate }}
+        INPUT_IOS_CERTIFICATE_PASSWORD: ${{ inputs.ios-certificate-password }}
+        INPUT_IOS_PROVISIONING_PROFILE: ${{ inputs.ios-provisioning-profile }}
+        INPUT_IOS_TEAM_ID: ${{ inputs.ios-team-id }}
       run: node "${{ github.action_path }}/scripts/validate.mjs"
 
     - name: Set up PHP
@@ -88,17 +108,20 @@ runs:
         node-version: ${{ inputs.node-version }}
 
     - name: Set up Java
+      if: ${{ inputs.platform == 'android' }}
       uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
       with:
         distribution: temurin
         java-version: ${{ inputs.java-version }}
 
     - name: Set up Android SDK
+      if: ${{ inputs.platform == 'android' }}
       uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
       with:
         packages: platform-tools
 
     - name: Install Android build dependencies
+      if: ${{ inputs.platform == 'android' }}
       shell: bash
       env:
         ANDROID_API_LEVEL: ${{ inputs.android-api-level }}
@@ -116,6 +139,27 @@ runs:
           "build-tools;${ANDROID_BUILD_TOOLS}" \
           "cmake;3.22.1" \
           "ndk;${ANDROID_NDK}"
+
+    - name: Cache Composer and npm downloads
+      uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4
+      with:
+        path: |
+          ~/.composer/cache
+          ~/.npm
+        key: ${{ runner.os }}-nativephp-dependencies-${{ hashFiles('**/composer.lock', '**/package-lock.json', '**/package.json') }}
+        restore-keys: |
+          ${{ runner.os }}-nativephp-dependencies-
+
+    - name: Cache Gradle downloads
+      if: ${{ inputs.platform == 'android' }}
+      uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-nativephp-gradle-${{ inputs.android-api-level }}-${{ inputs.android-build-tools }}-${{ inputs.android-ndk }}
+        restore-keys: |
+          ${{ runner.os }}-nativephp-gradle-
 
     - name: Install application dependencies
       shell: bash
@@ -136,13 +180,13 @@ runs:
           npm run build
         fi
 
-    - name: Prepare NativePHP Android project
+    - name: Prepare NativePHP project
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
         set -euo pipefail
         echo "Preparing NativePHP..."
-        php artisan native:install android --force --no-interaction
+        php artisan native:install "${{ inputs.platform }}" --force --no-interaction
 
     - name: Configure mobile runtime environment
       shell: bash
@@ -162,7 +206,7 @@ runs:
         fi
 
     - name: Decode Android signing keystore
-      if: ${{ inputs.build-type != 'debug' }}
+      if: ${{ inputs.platform == 'android' && inputs.build-type != 'debug' }}
       shell: bash
       env:
         KEYSTORE_BASE64: ${{ inputs.keystore }}
@@ -174,7 +218,7 @@ runs:
         echo "NATIVEPHP_BUILD_KEYSTORE_PATH=$key_path" >> "$GITHUB_ENV"
 
     - name: Generate temporary development keystore
-      if: ${{ inputs.build-type == 'debug' }}
+      if: ${{ inputs.platform == 'android' && inputs.build-type == 'debug' }}
       shell: bash
       run: |
         set -euo pipefail
@@ -193,7 +237,25 @@ runs:
         echo "NATIVEPHP_BUILD_KEY_ALIAS=nativephp-development" >> "$GITHUB_ENV"
         echo "NATIVEPHP_BUILD_KEY_PASSWORD=changeit" >> "$GITHUB_ENV"
 
+    - name: Decode iOS signing files
+      if: ${{ inputs.platform == 'ios' }}
+      shell: bash
+      env:
+        IOS_CERTIFICATE_BASE64: ${{ inputs.ios-certificate }}
+        IOS_PROVISIONING_PROFILE_BASE64: ${{ inputs.ios-provisioning-profile }}
+      run: |
+        set -euo pipefail
+        certificate_path="$RUNNER_TEMP/nativephp-ios-certificate.p12"
+        profile_path="$RUNNER_TEMP/nativephp-ios-profile.mobileprovision"
+        printf '%s' "$IOS_CERTIFICATE_BASE64" | base64 --decode > "$certificate_path"
+        printf '%s' "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$profile_path"
+        test -s "$certificate_path"
+        test -s "$profile_path"
+        echo "NATIVEPHP_IOS_CERTIFICATE_PATH=$certificate_path" >> "$GITHUB_ENV"
+        echo "NATIVEPHP_IOS_PROFILE_PATH=$profile_path" >> "$GITHUB_ENV"
+
     - name: Build NativePHP Android application
+      if: ${{ inputs.platform == 'android' }}
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       env:
@@ -223,27 +285,53 @@ runs:
           --no-tty \
           --no-interaction
 
+    - name: Build NativePHP iOS application
+      if: ${{ inputs.platform == 'ios' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        IOS_CERTIFICATE_PASSWORD: ${{ inputs.ios-certificate-password }}
+        IOS_TEAM_ID: ${{ inputs.ios-team-id }}
+        IOS_EXPORT_METHOD: ${{ inputs.ios-export-method }}
+      run: |
+        set -euo pipefail
+        mkdir -p "$RUNNER_TEMP/nativephp-artifacts"
+        echo "Building iOS application..."
+        php artisan native:package ios \
+          --build-type=release \
+          --output="$RUNNER_TEMP/nativephp-artifacts" \
+          --certificate-path="$NATIVEPHP_IOS_CERTIFICATE_PATH" \
+          --certificate-password="$IOS_CERTIFICATE_PASSWORD" \
+          --provisioning-profile-path="$NATIVEPHP_IOS_PROFILE_PATH" \
+          --team-id="$IOS_TEAM_ID" \
+          --export-method="$IOS_EXPORT_METHOD" \
+          --no-tty \
+          --no-interaction
+
     - name: Print NativePHP build diagnostics
       if: ${{ failure() }}
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
         set +e
-        if [ -f nativephp/android-build.log ]; then
-          echo '--- nativephp/android-build.log ---'
-          cat nativephp/android-build.log
-        fi
+        for log in nativephp/android-build.log nativephp/ios-build.log; do
+          if [ -f "$log" ]; then
+            echo "--- $log ---"
+            cat "$log"
+          fi
+        done
         find nativephp -maxdepth 4 -type f \( -name '*.log' -o -name 'composer-*.json' \) -print 2>/dev/null
 
-    - name: Locate Android artifact
+    - name: Locate build artifact
       id: artifact
       shell: bash
       env:
         BUILD_TYPE: ${{ inputs.build-type }}
+        PLATFORM: ${{ inputs.platform }}
         ARTIFACT_DIRECTORY: ${{ runner.temp }}/nativephp-artifacts
       run: node "${{ github.action_path }}/scripts/find-artifact.mjs"
 
     - name: Remove temporary signing material
       if: ${{ always() }}
       shell: bash
-      run: rm -f "$RUNNER_TEMP/nativephp-build-action.keystore"
+      run: rm -f "$RUNNER_TEMP/nativephp-build-action.keystore" "$RUNNER_TEMP/nativephp-ios-certificate.p12" "$RUNNER_TEMP/nativephp-ios-profile.mobileprovision"

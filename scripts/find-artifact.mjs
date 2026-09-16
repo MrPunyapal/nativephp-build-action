@@ -2,7 +2,8 @@ import { appendFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 const directory = process.env.ARTIFACT_DIRECTORY;
-const extension = process.env.BUILD_TYPE === 'bundle' ? '.aab' : '.apk';
+const platform = process.env.PLATFORM ?? 'android';
+const extension = platform === 'ios' ? '.ipa' : process.env.BUILD_TYPE === 'bundle' ? '.aab' : '.apk';
 
 async function findArtifacts(current) {
   const entries = await readdir(current, { withFileTypes: true });

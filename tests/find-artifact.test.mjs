@@ -8,12 +8,13 @@ import { fileURLToPath } from 'node:url';
 
 const script = fileURLToPath(new URL('../scripts/find-artifact.mjs', import.meta.url));
 
-function run(directory, buildType, outputFile) {
+function run(directory, buildType, outputFile, platform = 'android') {
   return spawnSync(process.execPath, [script], {
     env: {
       ...process.env,
       ARTIFACT_DIRECTORY: directory,
       BUILD_TYPE: buildType,
+      PLATFORM: platform,
       GITHUB_OUTPUT: outputFile,
     },
     encoding: 'utf8',
@@ -43,4 +44,16 @@ test('rejects ambiguous artifacts', async () => {
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /found 2/);
+});
+
+test('finds an iOS IPA', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'nativephp-action-'));
+  const outputFile = path.join(directory, 'github-output');
+  await writeFile(path.join(directory, 'Pinkary.ipa'), 'ipa');
+
+  const result = run(directory, 'release', outputFile, 'ios');
+  const output = await readFile(outputFile, 'utf8');
+
+  assert.equal(result.status, 0);
+  assert.match(output, /artifact=.*Pinkary\.ipa/);
 });
