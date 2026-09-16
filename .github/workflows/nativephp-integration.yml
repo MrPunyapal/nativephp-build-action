@@ -1,0 +1,40 @@
+name: NativePHP Android integration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the Action
+        uses: actions/checkout@v4
+        with:
+          path: action
+
+      - name: Check out the NativePHP application
+        uses: actions/checkout@v4
+        with:
+          repository: pinkary-project/pinkary-mobile
+          path: app
+
+      - name: Build NativePHP Android bundle
+        id: build
+        uses: ./action
+        with:
+          working-directory: app
+          platform: android
+          build-type: bundle
+          keystore: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          keystore-password: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          key-alias: ${{ secrets.ANDROID_KEY_ALIAS }}
+          key-password: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: nativephp-android-aab
+          path: ${{ steps.build.outputs.artifact }}
