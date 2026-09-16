@@ -199,7 +199,8 @@ runs:
         if ! grep -q '^NATIVEPHP_RUNNING=' .env; then
           printf '\nNATIVEPHP_RUNNING=true\n' >> .env
         else
-          sed -i 's/^NATIVEPHP_RUNNING=.*/NATIVEPHP_RUNNING=true/' .env
+          awk '{ if ($0 ~ /^NATIVEPHP_RUNNING=/) print "NATIVEPHP_RUNNING=true"; else print }' .env > .env.nativephp.tmp
+          mv .env.nativephp.tmp .env
         fi
         if ! grep -q '^APP_KEY=base64:' .env; then
           php artisan key:generate --force --no-interaction
@@ -247,8 +248,15 @@ runs:
         set -euo pipefail
         certificate_path="$RUNNER_TEMP/nativephp-ios-certificate.p12"
         profile_path="$RUNNER_TEMP/nativephp-ios-profile.mobileprovision"
-        printf '%s' "$IOS_CERTIFICATE_BASE64" | base64 --decode > "$certificate_path"
-        printf '%s' "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$profile_path"
+        decode_base64() {
+          if base64 --help 2>&1 | grep -q -- '--decode'; then
+            base64 --decode
+          else
+            base64 -D
+          fi
+        }
+        printf '%s' "$IOS_CERTIFICATE_BASE64" | decode_base64 > "$certificate_path"
+        printf '%s' "$IOS_PROVISIONING_PROFILE_BASE64" | decode_base64 > "$profile_path"
         test -s "$certificate_path"
         test -s "$profile_path"
         echo "NATIVEPHP_IOS_CERTIFICATE_PATH=$certificate_path" >> "$GITHUB_ENV"
