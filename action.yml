@@ -144,6 +144,23 @@ runs:
         echo "Preparing NativePHP..."
         php artisan native:install android --force --no-interaction
 
+    - name: Configure mobile runtime environment
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        if [ ! -f .env ] && [ -f .env.example ]; then
+          cp .env.example .env
+        fi
+        if ! grep -q '^NATIVEPHP_RUNNING=' .env; then
+          printf '\nNATIVEPHP_RUNNING=true\n' >> .env
+        else
+          sed -i 's/^NATIVEPHP_RUNNING=.*/NATIVEPHP_RUNNING=true/' .env
+        fi
+        if ! grep -q '^APP_KEY=base64:' .env; then
+          php artisan key:generate --force --no-interaction
+        fi
+
     - name: Decode Android signing keystore
       if: ${{ inputs.build-type != 'debug' }}
       shell: bash
