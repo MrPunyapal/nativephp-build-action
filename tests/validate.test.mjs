@@ -48,7 +48,7 @@ test('accepts a development Android build without signing inputs', () => {
 });
 
 test('rejects unsupported platforms and missing signing inputs', () => {
-  const result = run({ INPUT_PLATFORM: 'ios', INPUT_BUILD_TYPE: 'debug' });
+  const result = run({ INPUT_PLATFORM: 'windows', INPUT_BUILD_TYPE: 'release' });
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Use "android" or "ios"/);
