@@ -75,7 +75,7 @@ runs:
       run: node "${{ github.action_path }}/scripts/validate.mjs"
 
     - name: Set up PHP
-      uses: shivammathur/setup-php@v2
+      uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45d # v2
       with:
         php-version: ${{ inputs.php-version }}
         extensions: mbstring, intl, zip, pcntl, pdo_sqlite
@@ -83,14 +83,14 @@ runs:
         coverage: none
 
     - name: Set up Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
       with:
         node-version: ${{ inputs.node-version }}
         cache: npm
         cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
 
     - name: Set up Java
-      uses: actions/setup-java@v6
+      uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
       with:
         distribution: temurin
         java-version: ${{ inputs.java-version }}
@@ -100,7 +100,7 @@ runs:
           ${{ inputs.working-directory }}/nativephp/android/**/gradle-wrapper.properties
 
     - name: Set up Android SDK
-      uses: android-actions/setup-android@v4
+      uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
 
     - name: Install Android build dependencies
       shell: bash
