@@ -3,7 +3,7 @@ description: Community GitHub Action for building NativePHP Mobile Android appli
 author: mrpunyapal
 branding:
   icon: smartphone
-  color: pink
+  color: purple
 
 inputs:
   platform:
