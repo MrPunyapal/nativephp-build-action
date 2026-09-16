@@ -38,10 +38,18 @@ test('accepts a signed Android bundle build', () => {
   assert.equal(result.status, 0);
 });
 
+test('accepts a development Android build without signing inputs', () => {
+  const result = run({
+    INPUT_PLATFORM: 'android',
+    INPUT_BUILD_TYPE: 'debug',
+  });
+
+  assert.equal(result.status, 0);
+});
+
 test('rejects unsupported platforms and missing signing inputs', () => {
   const result = run({ INPUT_PLATFORM: 'ios', INPUT_BUILD_TYPE: 'debug' });
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Only "android" is supported/);
-  assert.match(result.stderr, /Missing required Android signing input: keystore/);
 });

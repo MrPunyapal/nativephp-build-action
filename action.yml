@@ -11,7 +11,7 @@ inputs:
     required: false
     default: android
   build-type:
-    description: NativePHP Android package type: release creates an APK, bundle creates an AAB.
+    description: debug creates a temporary-key development APK, release creates a signed APK, bundle creates a signed AAB.
     required: false
     default: release
   working-directory:
@@ -146,6 +146,7 @@ runs:
         php artisan native:install android --force --no-interaction
 
     - name: Decode Android signing keystore
+      if: ${{ inputs.build-type != 'debug' }}
       shell: bash
       env:
         KEYSTORE_BASE64: ${{ inputs.keystore }}
@@ -156,20 +157,52 @@ runs:
         test -s "$key_path"
         echo "NATIVEPHP_BUILD_KEYSTORE_PATH=$key_path" >> "$GITHUB_ENV"
 
+    - name: Generate temporary development keystore
+      if: ${{ inputs.build-type == 'debug' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        key_path="$RUNNER_TEMP/nativephp-build-action.keystore"
+        keytool -genkeypair -v \
+          -keystore "$key_path" \
+          -storepass changeit \
+          -keypass changeit \
+          -alias nativephp-development \
+          -keyalg RSA \
+          -keysize 2048 \
+          -validity 1 \
+          -dname "CN=NativePHP Development"
+        echo "NATIVEPHP_BUILD_KEYSTORE_PATH=$key_path" >> "$GITHUB_ENV"
+        echo "NATIVEPHP_BUILD_KEYSTORE_PASSWORD=changeit" >> "$GITHUB_ENV"
+        echo "NATIVEPHP_BUILD_KEY_ALIAS=nativephp-development" >> "$GITHUB_ENV"
+        echo "NATIVEPHP_BUILD_KEY_PASSWORD=changeit" >> "$GITHUB_ENV"
+
     - name: Build NativePHP Android application
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       env:
-        ANDROID_KEYSTORE_FILE: ${{ env.NATIVEPHP_BUILD_KEYSTORE_PATH }}
-        ANDROID_KEYSTORE_PASSWORD: ${{ inputs.keystore-password }}
-        ANDROID_KEY_ALIAS: ${{ inputs.key-alias }}
-        ANDROID_KEY_PASSWORD: ${{ inputs.key-password }}
+        INPUT_BUILD_TYPE: ${{ inputs.build-type }}
+        INPUT_KEYSTORE_PASSWORD: ${{ inputs.keystore-password }}
+        INPUT_KEY_ALIAS: ${{ inputs.key-alias }}
+        INPUT_KEY_PASSWORD: ${{ inputs.key-password }}
       run: |
         set -euo pipefail
         mkdir -p "$RUNNER_TEMP/nativephp-artifacts"
+        export ANDROID_KEYSTORE_FILE="$NATIVEPHP_BUILD_KEYSTORE_PATH"
+        if [ "$INPUT_BUILD_TYPE" = "debug" ]; then
+          export ANDROID_KEYSTORE_PASSWORD="$NATIVEPHP_BUILD_KEYSTORE_PASSWORD"
+          export ANDROID_KEY_ALIAS="$NATIVEPHP_BUILD_KEY_ALIAS"
+          export ANDROID_KEY_PASSWORD="$NATIVEPHP_BUILD_KEY_PASSWORD"
+          package_build_type=release
+        else
+          export ANDROID_KEYSTORE_PASSWORD="$INPUT_KEYSTORE_PASSWORD"
+          export ANDROID_KEY_ALIAS="$INPUT_KEY_ALIAS"
+          export ANDROID_KEY_PASSWORD="$INPUT_KEY_PASSWORD"
+          package_build_type="$INPUT_BUILD_TYPE"
+        fi
         echo "Building Android application..."
         php artisan native:package android \
-          --build-type="${{ inputs.build-type }}" \
+          --build-type="$package_build_type" \
           --output="$RUNNER_TEMP/nativephp-artifacts" \
           --no-tty \
           --no-interaction

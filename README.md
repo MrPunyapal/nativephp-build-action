@@ -6,7 +6,7 @@ This is an independent, open-source project. It uses NativePHP's official CLI an
 
 ## Quick start
 
-NativePHP Mobile 4's release packaging requires Android signing credentials. Store the keystore as a base64-encoded GitHub Secret.
+NativePHP Mobile 4's release packaging requires Android signing credentials. Store the keystore as a base64-encoded GitHub Secret. Development APKs can use `build-type: debug`, which generates a temporary keystore on the runner and does not require signing secrets.
 
 ```yaml
 name: Build Android
@@ -40,14 +40,14 @@ jobs:
           path: ${{ steps.build.outputs.artifact }}
 ```
 
-For a Play Store bundle, use `build-type: bundle`. The output is an `.aab` instead of an `.apk`.
+For a development APK without signing secrets, use `build-type: debug`. For a Play Store bundle, use `build-type: bundle`. The bundle output is an `.aab` instead of an `.apk`.
 
 ## Inputs
 
 | Input | Default | Description |
 | --- | --- | --- |
 | `platform` | `android` | Currently only `android` is supported. |
-| `build-type` | `release` | `release` produces an APK; `bundle` produces an AAB. |
+| `build-type` | `release` | `debug` produces a temporary-key development APK; `release` produces a signed APK; `bundle` produces a signed AAB. |
 | `working-directory` | `.` | Laravel application directory. |
 | `php-version` | `8.4` | PHP version. |
 | `node-version` | `22` | Node.js version. |
@@ -91,14 +91,14 @@ The underlying Composer, NativePHP, and Gradle output remains visible in the wor
 
 The first integration target is the Pinkary NativePHP application. Its current requirements are PHP `^8.4`, Laravel `13.17+`, Node.js `22`, npm, NativePHP Mobile `4.4`, Java `17`, Android API `36`, CMake `3.22.1`, and NDK `27.0.12077973`.
 
-The Action is designed for `ubuntu-latest`. Android release packaging also requires a signing keystore because NativePHP's `native:package` command creates signed distribution artifacts.
+The Action is designed for `ubuntu-latest`. Android release and bundle packaging require a signing keystore because NativePHP's `native:package` command creates signed distribution artifacts. Debug mode creates a short-lived development keystore inside the runner.
 
 ## Limitations
 
 - Android only; iOS is intentionally not implemented.
 - No Play Store or App Store publishing.
 - No hosted build service, dashboard, or billing.
-- A GitHub-hosted integration run still needs to be executed against a pushed application repository with signing secrets.
+- A GitHub-hosted release/bundle integration run needs a pushed application repository with signing secrets.
 
 ## License and project status
 
