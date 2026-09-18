@@ -70,6 +70,20 @@ inputs:
     description: iOS export method.
     required: false
     default: app-store
+  google-services-json:
+    description: Base64-encoded google-services.json content (Firebase Android config). Store it in GitHub Secrets.
+    required: false
+  google-services-json-path:
+    description: Destination path, relative to working-directory, for the decoded google-services.json file.
+    required: false
+    default: resources/google-services.json
+  google-service-info-plist:
+    description: Base64-encoded GoogleService-Info.plist content (Firebase iOS config). Store it in GitHub Secrets.
+    required: false
+  google-service-info-plist-path:
+    description: Destination path, relative to working-directory, for the decoded GoogleService-Info.plist file.
+    required: false
+    default: resources/GoogleService-Info.plist
 
 outputs:
   artifact:
@@ -178,6 +192,37 @@ runs:
         if node -e "const p=require('./package.json'); process.exit(p.scripts?.build ? 0 : 1)" 2>/dev/null; then
           echo "Building frontend assets..."
           npm run build
+        fi
+
+    - name: Decode Firebase configuration files
+      if: ${{ inputs.google-services-json != '' || inputs.google-service-info-plist != '' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        GOOGLE_SERVICES_JSON_BASE64: ${{ inputs.google-services-json }}
+        GOOGLE_SERVICES_JSON_PATH: ${{ inputs.google-services-json-path }}
+        GOOGLE_SERVICE_INFO_PLIST_BASE64: ${{ inputs.google-service-info-plist }}
+        GOOGLE_SERVICE_INFO_PLIST_PATH: ${{ inputs.google-service-info-plist-path }}
+      run: |
+        set -euo pipefail
+        decode_base64() {
+          if base64 --help 2>&1 | grep -q -- '--decode'; then
+            base64 --decode
+          else
+            base64 -D
+          fi
+        }
+        if [ -n "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+          mkdir -p "$(dirname "$GOOGLE_SERVICES_JSON_PATH")"
+          printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | decode_base64 > "$GOOGLE_SERVICES_JSON_PATH"
+          test -s "$GOOGLE_SERVICES_JSON_PATH"
+          echo "Decoded google-services.json to $GOOGLE_SERVICES_JSON_PATH"
+        fi
+        if [ -n "$GOOGLE_SERVICE_INFO_PLIST_BASE64" ]; then
+          mkdir -p "$(dirname "$GOOGLE_SERVICE_INFO_PLIST_PATH")"
+          printf '%s' "$GOOGLE_SERVICE_INFO_PLIST_BASE64" | decode_base64 > "$GOOGLE_SERVICE_INFO_PLIST_PATH"
+          test -s "$GOOGLE_SERVICE_INFO_PLIST_PATH"
+          echo "Decoded GoogleService-Info.plist to $GOOGLE_SERVICE_INFO_PLIST_PATH"
         fi
 
     - name: Prepare NativePHP project
@@ -343,3 +388,9 @@ runs:
       if: ${{ always() }}
       shell: bash
       run: rm -f "$RUNNER_TEMP/nativephp-build-action.keystore" "$RUNNER_TEMP/nativephp-ios-certificate.p12" "$RUNNER_TEMP/nativephp-ios-profile.mobileprovision"
+
+    - name: Remove decoded Firebase configuration files
+      if: ${{ always() && (inputs.google-services-json != '' || inputs.google-service-info-plist != '') }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: rm -f "${{ inputs.google-services-json-path }}" "${{ inputs.google-service-info-plist-path }}"
