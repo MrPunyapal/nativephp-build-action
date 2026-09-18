@@ -59,6 +59,10 @@ For a development APK without signing secrets, use `build-type: debug`. For a Pl
 | `keystore-password` | — | Keystore password. |
 | `key-alias` | — | Signing key alias. |
 | `key-password` | — | Signing key password. |
+| `google-services-json` | — | Base64-encoded `google-services.json` content (Firebase Android config). |
+| `google-services-json-path` | `resources/google-services.json` | Destination path, relative to `working-directory`, for the decoded file. |
+| `google-service-info-plist` | — | Base64-encoded `GoogleService-Info.plist` content (Firebase iOS config). |
+| `google-service-info-plist-path` | `resources/GoogleService-Info.plist` | Destination path, relative to `working-directory`, for the decoded file. |
 
 ## Outputs
 
@@ -75,6 +79,35 @@ base64 -w 0 pinkary.keystore > pinkary.keystore.base64
 Save the encoded contents as `ANDROID_KEYSTORE_BASE64` and save the three passwords/aliases as separate GitHub Secrets. The Action writes the keystore only to the runner's temporary directory, passes the path through NativePHP's supported environment variables, and removes it in an `always()` cleanup step.
 
 Do not print the secret, pass it in a command string, or commit the keystore.
+
+## Firebase configuration (google-services.json / GoogleService-Info.plist)
+
+If your app uses a Firebase-backed plugin (such as [`nativephp/mobile-firebase`](https://nativephp.com/plugins/nativephp/mobile-firebase)), it needs `google-services.json` and/or `GoogleService-Info.plist` at build time. Never commit these files — they contain your Firebase project's client configuration. Instead, base64-encode them and store them as GitHub Secrets, the same way as the signing keystore:
+
+```bash
+base64 -w 0 google-services.json > google-services.json.base64
+base64 -w 0 GoogleService-Info.plist > GoogleService-Info.plist.base64
+```
+
+Save the encoded contents as `GOOGLE_SERVICES_JSON` and `GOOGLE_SERVICE_INFO_PLIST` GitHub Secrets, then pass them to the Action:
+
+```yaml
+      - name: Build NativePHP Android APK
+        id: build
+        uses: mrpunyapal/nativephp-build-action@v1
+        with:
+          platform: android
+          build-type: release
+          keystore: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          keystore-password: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          key-alias: ${{ secrets.ANDROID_KEY_ALIAS }}
+          key-password: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          google-services-json: ${{ secrets.GOOGLE_SERVICES_JSON }}
+```
+
+For an iOS build (`platform: ios`), pass `google-service-info-plist: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}` alongside the `ios-*` signing inputs instead.
+
+The Action decodes each provided secret into `google-services-json-path` / `google-service-info-plist-path` (default `resources/google-services.json` and `resources/GoogleService-Info.plist`, relative to `working-directory`) before `native:install` runs, so NativePHP's asset-copy step can place them into the native Android/iOS projects. These defaults already match NativePHP's plugin `assets` convention and work for both platforms without changes — override the `*-path` inputs only if your Firebase plugin's manifest expects the source file somewhere other than `resources/`. Both files are deleted from the checkout in an `always()` cleanup step after the build, and add the same paths to your app's `.gitignore` so a locally-decoded copy never gets committed by accident.
 
 ## What the Action does
 
