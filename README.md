@@ -25,7 +25,7 @@ jobs:
 
       - name: Build NativePHP Android APK
         id: build
-        uses: mrpunyapal/nativephp-build-action@v1
+        uses: mrpunyapal/nativephp-build-action@v0
         with:
           platform: android
           build-type: release
@@ -94,7 +94,7 @@ Save the encoded contents as `GOOGLE_SERVICES_JSON` and `GOOGLE_SERVICE_INFO_PLI
 ```yaml
       - name: Build NativePHP Android APK
         id: build
-        uses: mrpunyapal/nativephp-build-action@v1
+        uses: mrpunyapal/nativephp-build-action@v0
         with:
           platform: android
           build-type: release
