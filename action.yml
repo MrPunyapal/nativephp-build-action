@@ -219,6 +219,7 @@ runs:
           resolved_path="$(resolve_safe_path "$GOOGLE_SERVICES_JSON_PATH")"
           mkdir -p "$(dirname "$resolved_path")"
           printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | decode_base64 > "$resolved_path"
+          chmod 600 "$resolved_path"
           test -s "$resolved_path"
           echo "Decoded google-services.json to $resolved_path"
         fi
@@ -226,6 +227,7 @@ runs:
           resolved_path="$(resolve_safe_path "$GOOGLE_SERVICE_INFO_PLIST_PATH")"
           mkdir -p "$(dirname "$resolved_path")"
           printf '%s' "$GOOGLE_SERVICE_INFO_PLIST_BASE64" | decode_base64 > "$resolved_path"
+          chmod 600 "$resolved_path"
           test -s "$resolved_path"
           echo "Decoded GoogleService-Info.plist to $resolved_path"
         fi
