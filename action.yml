@@ -208,8 +208,10 @@ runs:
         decode_base64() {
           if base64 --help 2>&1 | grep -q -- '--decode'; then
             base64 --decode
-          else
+          elif base64 --help 2>&1 | grep -q -- ' -D'; then
             base64 -D
+          else
+            base64 -d
           fi
         }
         resolve_safe_path() {
@@ -303,8 +305,10 @@ runs:
         decode_base64() {
           if base64 --help 2>&1 | grep -q -- '--decode'; then
             base64 --decode
-          else
+          elif base64 --help 2>&1 | grep -q -- ' -D'; then
             base64 -D
+          else
+            base64 -d
           fi
         }
         printf '%s' "$IOS_CERTIFICATE_BASE64" | decode_base64 > "$certificate_path"
